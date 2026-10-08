@@ -831,13 +831,19 @@ app.post('/api/forums', (req, res) => {
 // 3. EVENTS
 app.get('/api/events', async (req, res) => {
   try {
+    const filter = (req.query.filter as string) || 'upcoming';
+    const category = req.query.category as string;
+    const search = req.query.search as string;
+
     const { data: dbEvents, error } = await supabase
       .from('events')
       .select('*, forums(name, category)');
 
     if (error) throw error;
 
-    const formatted = (dbEvents || []).map((ev: any) => {
+    const now = new Date();
+
+    let formatted = (dbEvents || []).map((ev: any) => {
       const realForumName = ev.forums?.name || 'Campus Forum';
       const isReg = registeredEventIds.has(ev.id);
 
@@ -853,6 +859,32 @@ app.get('/api/events', async (req, res) => {
         is_registered: isReg
       };
     });
+
+    // 1. Tab wise filtering (Upcoming vs Registered vs Past)
+    if (filter === 'registered') {
+      formatted = formatted.filter((ev: any) => ev.is_registered === true);
+    } else if (filter === 'past') {
+      formatted = formatted.filter((ev: any) => new Date(ev.start_datetime) < now);
+    } else {
+      // Upcoming events (future dates)
+      formatted = formatted.filter((ev: any) => new Date(ev.start_datetime) >= now);
+    }
+
+    // 2. Category filter
+    if (category && category !== 'all') {
+      formatted = formatted.filter((ev: any) => 
+        (ev.event_type || '').toLowerCase() === category.toLowerCase()
+      );
+    }
+
+    // 3. Search query filter
+    if (search) {
+      const q = search.toLowerCase();
+      formatted = formatted.filter((ev: any) => 
+        (ev.title || '').toLowerCase().includes(q) || 
+        (ev.location || '').toLowerCase().includes(q)
+      );
+    }
 
     res.json({ events: formatted });
   } catch (err: any) {

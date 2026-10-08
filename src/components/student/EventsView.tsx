@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { CollegeEvent, EventCategory } from '../../types';
+import { CollegeEvent } from '../../types';
 import { EventCard } from '../common/EventCard';
-import { Search, Filter, Calendar, CheckCircle2, History, SlidersHorizontal } from 'lucide-react';
+import { Search, Calendar, CheckCircle2, History, SlidersHorizontal } from 'lucide-react';
 import { RegistrationModal } from '../RegistrationModal';
+import { CancelModal } from '../CancelModal';
 
 interface EventsViewProps {
   onSelectEvent: (event: CollegeEvent) => void;
@@ -16,7 +17,10 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
   const [sortBy, setSortBy] = useState<'date' | 'seats' | 'title'>('date');
   const [events, setEvents] = useState<CollegeEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEventForModal, setSelectedEventForModal] = useState<any>(null);
+
+  // Dono modals ke liye alag state
+  const [eventForRegisterModal, setEventForRegisterModal] = useState<CollegeEvent | null>(null);
+  const [eventForCancelModal, setEventForCancelModal] = useState<CollegeEvent | null>(null);
   const [registeringId, setRegisteringId] = useState<string | null>(null);
 
   const categories: { id: string; label: string }[] = [
@@ -61,12 +65,29 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
   }, [activeTab, category, sortBy, search]);
 
   const handleRegisterToggle = (event: CollegeEvent) => {
-    // Naye registration ke liye seedha Modal popup open karo
-    setSelectedEventForModal(event);
+    if (event.is_registered) {
+      // Agar already registered hai -> Confirmation modal kholo
+      setEventForCancelModal(event);
+    } else {
+      // Agar register nahi hai -> Registration form modal kholo
+      setEventForRegisterModal(event);
+    }
   };
+
+  const handleConfirmCancel = async (eventId: string) => {
+    try {
+      setRegisteringId(eventId);
+      await api.registerForEvent(eventId); // backend par toggle hoke cancel karega
+      await fetchEvents();
+    } catch (err: unknown) {
+      alert((err as Error).message || 'Error cancelling registration');
+    } finally {
+      setRegisteringId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
-      {/* Title & Subtitle */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Campus Events</h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -74,7 +95,6 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
         </p>
       </div>
 
-      {/* Main Tabs: Upcoming, Registered, Past */}
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl max-w-md">
         <button
           onClick={() => setActiveTab('upcoming')}
@@ -113,7 +133,6 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
         </button>
       </div>
 
-      {/* Controls Bar: Search, Category Filters, Sort */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:w-80">
@@ -144,7 +163,6 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
           </div>
         </div>
 
-        {/* Category Pills (Functional filter buttons) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           {categories.map((cat) => (
             <button
@@ -162,7 +180,6 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
         </div>
       </div>
 
-      {/* Events Grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -201,13 +218,22 @@ export const EventsView: React.FC<EventsViewProps> = ({ onSelectEvent }) => {
         </div>
       )}
 
-    <RegistrationModal
-        isOpen={!!selectedEventForModal}
-        event={selectedEventForModal}
-        onClose={() => setSelectedEventForModal(null)}
+      {/* 1. Registration Form Modal */}
+      <RegistrationModal
+        isOpen={!!eventForRegisterModal}
+        event={eventForRegisterModal}
+        onClose={() => setEventForRegisterModal(null)}
         onSuccess={async () => {
           await fetchEvents();
         }}
+      />
+
+      {/* 2. Cancellation Confirmation Modal */}
+      <CancelModal
+        isOpen={!!eventForCancelModal}
+        event={eventForCancelModal}
+        onClose={() => setEventForCancelModal(null)}
+        onConfirm={handleConfirmCancel}
       />
     </div>
   );
