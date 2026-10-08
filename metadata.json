@@ -1,0 +1,6 @@
+{
+  "name": "UniForum",
+  "description": "AI-Powered College Forums & Event Management App with intelligent recommendations, approvals, and real-time community engagement.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
