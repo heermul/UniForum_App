@@ -5,12 +5,10 @@ import {
   Bell, 
   Sparkles, 
   ChevronDown, 
-  UserCheck, 
   LogOut, 
   Check, 
   Menu, 
-  X,
-  ExternalLink
+  X
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -29,7 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNotifications,
   onOpenProfile,
 }) => {
-  const { user, role, switchRole, unreadCount, logout } = useAuth();
+  const auth = useAuth() as any;
+  const { user, role, unreadCount, logout } = auth;
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -42,7 +41,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleRoleSelect = async (r: UserRole) => {
     setRoleMenuOpen(false);
-    await switchRole(r);
+    if (typeof auth.switchRole === 'function') {
+      await auth.switchRole(r);
+    } else if (typeof auth.setRole === 'function') {
+      auth.setRole(r);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   // Nav links depending on current user role
@@ -196,17 +203,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="View Profile"
           >
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-xs overflow-hidden">
-              {user?.profile_photo ? (
+              {user?.avatar || user?.profile_photo ? (
                 <img
-                  src={user.profile_photo}
-                  alt={user.full_name}
+                  src={user.avatar || user.profile_photo}
+                  alt={user?.full_name || user?.name || 'User'}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                 />
               ) : (
-                user?.full_name?.charAt(0) || 'U'
+                (user?.full_name || user?.name || 'U').charAt(0)
               )}
             </div>
+          </button>
+
+          {/* Desktop Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer"
+            title="Sign out of UniForum"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Logout</span>
           </button>
 
           {/* Mobile hamburger */}
@@ -238,7 +255,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {link.label}
             </button>
           ))}
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 space-y-2">
             <button
               onClick={() => {
                 onOpenAiAssistant();
@@ -248,6 +265,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles className="w-4 h-4" />
               <span>UniForum AI Assistant</span>
+            </button>
+            <button
+              onClick={() => {
+                handleLogout();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-rose-600 rounded-xl bg-rose-50 hover:bg-rose-100 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>

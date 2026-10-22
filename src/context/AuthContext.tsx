@@ -1,97 +1,136 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, UserRole } from '../types';
-import { api } from '../lib/api';
+import { User, UserRole } from '../types';
+
+interface SignupData {
+  full_name: string;
+  email: string;
+  department?: string;
+  year?: string;
+  role: UserRole;
+}
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: User | null;
   role: UserRole;
   loading: boolean;
-  unreadCount: number;
   login: (email: string) => Promise<void>;
-  signup: (data: { full_name: string; email: string; department?: string; year?: string; role?: string }) => Promise<void>;
+  signup: (data: SignupData) => Promise<void>;
   logout: () => void;
-  switchRole: (newRole: UserRole, targetUserId?: string) => Promise<void>;
-  refreshUser: () => Promise<void>;
-  refreshNotifications: () => Promise<void>;
+  setRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
+const STORAGE_KEY = 'uniforum_auth_user';
+const REGISTERED_USERS_KEY = 'uniforum_registered_users';
 
-  const fetchCurrent = async () => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRoleState] = useState<UserRole>('student');
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Restore session from localStorage on startup
+  useEffect(() => {
     try {
-      setLoading(true);
-      const res = await api.getMe();
-      setUser(res.user);
-      await fetchUnreadNotifs();
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: User = JSON.parse(saved);
+        setUser(parsed);
+        setRoleState(parsed.role || 'student');
+      }
     } catch (err) {
-      console.error('Failed to load current session:', err);
+      console.error('Failed to restore session', err);
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const login = async (email: string) => {
+    setLoading(true);
+    try {
+      const registeredUsersRaw = localStorage.getItem(REGISTERED_USERS_KEY);
+      const registeredUsers: User[] = registeredUsersRaw ? JSON.parse(registeredUsersRaw) : [];
+      const existingUser = registeredUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+
+      let loggedInUser: User;
+
+      if (existingUser) {
+        loggedInUser = existingUser;
+      } else {
+        let detectedRole: UserRole = 'student';
+        const lowerEmail = email.toLowerCase();
+        if (lowerEmail.includes('admin')) detectedRole = 'admin';
+        else if (lowerEmail.includes('faculty') || lowerEmail.includes('prof')) detectedRole = 'faculty';
+        else if (lowerEmail.includes('coord') || lowerEmail.includes('club')) detectedRole = 'coordinator';
+
+        const username = email.split('@')[0];
+        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+
+        loggedInUser = {
+          id: 'user_' + Date.now(),
+          name: formattedName,
+          email: email,
+          role: detectedRole,
+          department: 'Computer Science',
+          year: '3rd Year',
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+          clubs: [],
+        };
+      }
+
+      setUser(loggedInUser);
+      setRoleState(loggedInUser.role);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedInUser));
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUnreadNotifs = async () => {
+  const signup = async (data: SignupData) => {
+    setLoading(true);
     try {
-      const res = await api.getNotifications();
-      const count = res.notifications.filter(n => !n.is_read).length;
-      setUnreadCount(count);
-    } catch {
-      // ignore
+      const newUser: User = {
+        id: 'user_' + Date.now(),
+        name: data.full_name,
+        email: data.email,
+        role: data.role,
+        department: data.department || 'Computer Science',
+        year: data.year || '1st Year',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.full_name.replace(/\s+/g, '')}`,
+        clubs: [],
+      };
+
+      const registeredUsersRaw = localStorage.getItem(REGISTERED_USERS_KEY);
+      const registeredUsers: User[] = registeredUsersRaw ? JSON.parse(registeredUsersRaw) : [];
+      registeredUsers.push(newUser);
+      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registeredUsers));
+
+      setUser(newUser);
+      setRoleState(newUser.role);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchCurrent();
-  }, []);
-
-  const login = async (email: string) => {
-    const res = await api.login(email);
-    setUser(res.user);
-    await fetchUnreadNotifs();
-  };
-
-  const signup = async (data: { full_name: string; email: string; department?: string; year?: string; role?: string }) => {
-    const res = await api.signup(data);
-    setUser(res.user);
-    await fetchUnreadNotifs();
-  };
-
   const logout = () => {
-    // Switch to guest/default student
-    login('heermulchandani2005@gmail.com');
+    setUser(null);
+    setRoleState('student');
+    localStorage.removeItem(STORAGE_KEY);
   };
 
-  const switchRole = async (newRole: UserRole, targetUserId?: string) => {
-    const res = await api.switchRole(newRole, targetUserId);
-    setUser(res.user);
-    await fetchUnreadNotifs();
-  };
-
-  const refreshUser = async () => {
-    const res = await api.getMe();
-    setUser(res.user);
+  const setRole = (newRole: UserRole) => {
+    setRoleState(newRole);
+    if (user) {
+      const updated: User = { ...user, role: newRole };
+      setUser(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role: user?.role || 'student',
-        loading,
-        unreadCount,
-        login,
-        signup,
-        logout,
-        switchRole,
-        refreshUser,
-        refreshNotifications: fetchUnreadNotifs,
-      }}
-    >
+    <AuthContext.Provider value={{ user, role, loading, login, signup, logout, setRole }}>
       {children}
     </AuthContext.Provider>
   );

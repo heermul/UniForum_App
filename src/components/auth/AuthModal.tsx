@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, User, Building, GraduationCap, ArrowRight } from 'lucide-react';
+import { UserRole } from '../../types';
+import { Mail, Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<UserRole>('student');
   const [department, setDepartment] = useState('Computer Science');
   const [year, setYear] = useState('3rd Year');
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           email: email.trim(),
           department,
           year,
-          role: 'student', // enforced safe default
+          role, // Dynamic role selection
         });
       } else {
         if (!email.trim()) {
@@ -57,7 +59,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       isOpen={isOpen}
       onClose={onClose}
       title={isSignUp ? 'Create UniForum Account' : 'Welcome Back to UniForum'}
-      subtitle={isSignUp ? 'Register with your college credentials' : 'Sign in to access your registered events & forums'}
+      subtitle={isSignUp ? 'Register with your college credentials' : 'Sign in to access your dashboard & approvals'}
       maxWidth="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,20 +70,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         )}
 
         {isSignUp && (
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
-            <div className="relative">
-              <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Heer Mulchandani"
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              />
+          <>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
+              <div className="relative">
+                <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
             </div>
-          </div>
+
+            {/* Role Selection Dropdown for Multi-tier Access */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Select Role *</label>
+              <div className="relative">
+                <ShieldCheck className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as UserRole)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                >
+                  <option value="student">Student</option>
+                  <option value="coordinator">Club Coordinator (Submit Events)</option>
+                  <option value="faculty">Faculty (Initial Approvals)</option>
+                  <option value="admin">College Administrator (Final Sign-off)</option>
+                </select>
+              </div>
+            </div>
+          </>
         )}
 
         <div>
@@ -93,7 +115,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="student@college.edu"
+              placeholder="user@college.edu"
               className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
@@ -141,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 <option value="2nd Year">2nd Year</option>
                 <option value="3rd Year">3rd Year</option>
                 <option value="4th Year">4th Year</option>
-                <option value="Postgraduate">Postgraduate</option>
+                <option value="Faculty/Staff">Faculty / Staff</option>
               </select>
             </div>
           </div>
@@ -150,9 +172,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
+          className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          <span>{loading ? 'Authenticating...' : isSignUp ? 'Create Student Account' : 'Sign In'}</span>
+          <span>{loading ? 'Authenticating...' : isSignUp ? 'Create Account' : 'Sign In'}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
 

@@ -1,18 +1,14 @@
 export type UserRole = 'student' | 'coordinator' | 'faculty' | 'admin';
 
-export interface UserProfile {
+export interface User {
   id: string;
-  full_name: string;
+  name: string;        // <--- It is 'name', NOT 'full_name'
   email: string;
-  profile_photo?: string;
   role: UserRole;
-  college_id?: string;
+  avatar?: string;     // <--- It is 'avatar', NOT 'avatar_url'
   department?: string;
   year?: string;
-  bio?: string;
-  status: 'active' | 'inactive';
-  created_at: string;
-  updated_at: string;
+  clubs?: string[];
 }
 
 export type EventStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'completed';

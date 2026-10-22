@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/common/Navbar';
 import { BottomNav } from './components/common/BottomNav';
 import { SplashScreen } from './components/auth/SplashScreen';
-import { AuthModal } from './components/auth/AuthModal';
+import { LoginPage } from './components/auth/LoginPage';
 import { RoleSelectorModal } from './components/auth/RoleSelectorModal';
 
 // Student views
@@ -31,10 +31,10 @@ import { ForumAdminView } from './components/admin/ForumAdminView';
 import { AiChatbotModal } from './components/ai/AiChatbotModal';
 import { CollegeEvent, Forum } from './types';
 import { api } from './lib/api';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 const MainApp: React.FC = () => {
-  const { user, role } = useAuth();
+  const { user, role, loading } = useAuth();
   const [showSplash, setShowSplash] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('home');
 
@@ -42,7 +42,6 @@ const MainApp: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<CollegeEvent | null>(null);
   const [selectedForum, setSelectedForum] = useState<Forum | null>(null);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
 
   // Sync activeTab when role changes
@@ -56,12 +55,11 @@ const MainApp: React.FC = () => {
     } else if (role === 'admin' && !['admin-dashboard', 'user-management', 'all-events', 'forum-management'].includes(activeTab)) {
       setActiveTab('admin-dashboard');
     }
-  }, [role]);
+  }, [role, activeTab]);
 
   const handleRegisterToggle = async (event: CollegeEvent) => {
     try {
       const res = await api.registerForEvent(event.id);
-      // update local state
       setSelectedEvent((prev) => (prev && prev.id === event.id ? { ...prev, is_registered: res.is_registered } : prev));
     } catch (err: unknown) {
       alert((err as Error).message || 'Registration failed');
@@ -77,7 +75,22 @@ const MainApp: React.FC = () => {
     return <SplashScreen onContinue={() => setShowSplash(false)} />;
   }
 
-  // Render role-specific content
+  // 1. Session check loader
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <p className="text-sm font-medium text-slate-400">Verifying UniForum session...</p>
+      </div>
+    );
+  }
+
+  // 2. Strict Access Control: Directly render the full Login/Register Page if unauthenticated
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  // 3. Render role-specific dashboard content
   const renderContent = () => {
     if (role === 'coordinator') {
       switch (activeTab) {
@@ -141,7 +154,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* 1. Desktop Top Bar Contract */}
+      {/* Desktop Top Bar */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -150,12 +163,12 @@ const MainApp: React.FC = () => {
         onOpenProfile={() => setActiveTab('profile')}
       />
 
-      {/* 2. Main Viewport */}
+      {/* Main Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {renderContent()}
       </main>
 
-      {/* 3. Floating AI Assistant Action (Mobile/Desktop quick launcher) */}
+      {/* Floating AI Assistant Action */}
       <button
         onClick={() => setAiAssistantOpen(true)}
         className="fixed bottom-20 md:bottom-8 right-5 z-40 p-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all hover:scale-105 flex items-center justify-center cursor-pointer"
@@ -164,7 +177,7 @@ const MainApp: React.FC = () => {
         <Sparkles className="w-5 h-5" />
       </button>
 
-      {/* 4. Mobile Bottom Nav (<15% mobile viewport cap) */}
+      {/* Mobile Bottom Navigation */}
       <BottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -185,16 +198,10 @@ const MainApp: React.FC = () => {
         onClose={() => setAiAssistantOpen(false)}
       />
 
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={() => {}}
-      />
-
       <RoleSelectorModal
         isOpen={roleModalOpen}
         onClose={() => setRoleModalOpen(false)}
-        onRoleSelected={(r) => {}}
+        onRoleSelected={() => {}}
       />
     </div>
   );
